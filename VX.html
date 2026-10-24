@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>VALTRIX AI - Ultimate Stark Protocol</title>
+    <style>
+        :root {
+            --bg-color: #020617;
+            --card-bg: rgba(3, 7, 18, 0.85);
+            --accent-color: #00f0ff;
+            --accent-glow: rgba(0, 240, 255, 0.6);
+            --text-color: #e2e8f0;
+            --danger-color: #f43f5e;
+            --success-color: #10b981;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Roboto, sans-serif;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            overflow: hidden;
+        }
+
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        .hud-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+            pointer-events: none;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 15px;
+        }
+
+        header {
+            text-align: center;
+            border-bottom: 1px dashed rgba(0, 240, 255, 0.3);
+            padding-bottom: 8px;
+            pointer-events: auto;
+            background: var(--card-bg);
+            border-radius: 8px;
+            backdrop-filter: blur(6px);
+        }
+
+        header h1 {
+            color: var(--accent-color);
+            letter-spacing: 4px;
+            font-size: 1.5rem;
+            text-shadow: 0 0 15px var(--accent-glow);
+            font-weight: 900;
+        }
+
+        header p {
+            font-size: 0.65rem;
+            color: #64748b;
+            letter-spacing: 1px;
+        }
+
+        .center-hud {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            pointer-events: none;
+        }
+
+        #camera-preview {
+            display: none;
+            width: 140px;
+            height: 100px;
+            border-radius: 8px;
+            object-fit: cover;
+            border: 1px solid var(--accent-color);
+            box-shadow: 0 0 15px var(--accent-glow);
+            pointer-events: auto;
+        }
+
+        .response-box {
+            width: 100%;
+            max-width: 400px;
+            max-height: 90px;
+            overflow-y: auto;
+            background: var(--card-bg);
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 0.8rem;
+            line-height: 1.3;
+            border: 1px solid rgba(0, 240, 255, 0.3);
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.8);
+            pointer-events: auto;
+            backdrop-filter: blur(6px);
+            text-align: center;
+            margin: 0 auto;
+        }
+
+        .controls {
+            width: 100%;
+            background: var(--card-bg);
+            padding: 12px;
+            border-radius: 12px;
+            border: 1px solid rgba(0, 240, 255, 0.3);
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            pointer-events: auto;
+            backdrop-filter: blur(8px);
+        }
+
+        .status {
+            text-align: center;
+            font-size: 0.75rem;
+            min-height: 16px;
+            color: var(--accent-color);
+            font-weight: 600;
+        }
+
+        .action-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 6px;
+        }
+
+        .btn-secondary {
+            background-color: rgba(30, 41, 59, 0.8);
+            color: var(--text-color);
+            border: 1px solid rgba(0, 240, 255, 0.3);
+            padding: 8px 4px;
+            border-radius: 6px;
+            font-size: 0.7rem;
+            font-weight: bold;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            transition: all 0.2s;
+        }
+
+        .btn-secondary:hover {
+            border-color: var(--accent-color);
+            box-shadow: 0 0 10px var(--accent-glow);
+        }
+
+        .btn-wakeword {
+            background-color: var(--success-color);
+            color: #030712;
+            border: 1px solid var(--success-color);
+            padding: 10px;
+            border-radius: 30px;
+            font-weight: bold;
+            font-size: 0.85rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            box-shadow: 0 0 15px rgba(16, 185, 129, 0.4);
+            transition: all 0.3s ease;
+        }
+
+        .btn-wakeword.active {
+            background-color: var(--danger-color);
+            color: white;
+            box-shadow: 0 0 15px rgba(244, 63, 94, 0.5);
+            border-color: var(--danger-color);
+        }
+    </style>
+
+    <!-- استدعاء مكتبة Three.js ثلاثية الأبعاد -->
+    <script src="https://unpkg.com/three@0.128.0/build/three.min.js"></script>
+</head>
+<body>
+
+    <!-- خلفية الهولوغرام والمفاعل ثلاثي الأبعاد -->
+    <div id="canvas-container"></div>
+
+    <div class="hud-overlay">
+        <header>
+            <h1>VALTRIX AI</h1>
+            <p>STARK HOLOGRAPHIC PROTOCOL v5.0</p>
+        </header>
+
+        <div class="center-hud">
+            <video id="camera-preview" autoplay playsinline muted></video>
+            <div class="response-box" id="response-text">
+                مرحباً يا أنور. تكلّم بحرية وسأسمعك للنهاية عند قول <b>"VX"</b>.
+            </div>
+        </div>
+
+        <div class="controls">
+            <div class="status" id="status-text">الأنظمة مستعدة للتشغيل...</div>
+            
+            <button class="btn-wakeword" id="wake-btn" onclick="toggleContinuousListening()">
+                👂 تفعيل الاستماع المستمر "VX"
+            </button>
+
+            <div class="action-grid">
+                <button class="btn-secondary" onclick="toggleCameraManually()">📷 الكاميرا</button>
+                <button class="btn-secondary" onclick="boostReactorPower()">⚡ زيادة الطاقة</button>
+                <button class="btn-secondary" onclick="clearMemory()">🧠 مسح الذاكرة</button>
+            </div>
+        </div>
+    </div>
+
+    <canvas id="snapshot-canvas" style="display:none;"></canvas>
+
+    <script>
+        const API_KEY = "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";
+
+        const statusText = document.getElementById('status-text');
+        const responseText = document.getElementById('response-text');
+        const wakeBtn = document.getElementById('wake-btn');
+        const cameraPreview = document.getElementById('camera-preview');
+        const snapshotCanvas = document.getElementById('snapshot-canvas');
+
+        let isListening = false;
+        let isContinuous = false;
+        let recognition;
+        let cameraStream = null;
+        let voices = [];
+        let fullTranscript = '';
+        let silenceTimer = null;
+
+        let memory = JSON.parse(localStorage.getItem('valtrix_ultimate_memory')) || [];
+
+        // إعداد مشهد Three.js الهولوغرامي في الخلفية
+        let scene, camera, renderer, arcCoreGroup, outerMat, midMat, centerCore;
+        let speedMultiplier = 1;
+        let isOverdrive = false;
+
+        window.onload = () => {
+            initThreeJS();
+            setupSpeech();
+            loadVoices();
+            if (window.speechSynthesis) {
+                window.speechSynthesis.onvoiceschanged = loadVoices;
+            }
+        };
+
+        function initThreeJS() {
+            if (typeof THREE === 'undefined') return;
+
+            const container = document.getElementById('canvas-container');
+            scene = new THREE.Scene();
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.z = 4.5;
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            container.appendChild(renderer.domElement);
+
+            arcCoreGroup = new THREE.Group();
+
+            const outerGeo = new THREE.TorusGeometry(1.9, 0.03, 16, 100);
+            outerMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff, wireframe: true, transparent: true, opacity: 0.5 });
+            const outerRing = new THREE.Mesh(outerGeo, outerMat);
+            arcCoreGroup.add(outerRing);
+
+            const midGeo = new THREE.TorusGeometry(1.3, 0.06, 12, 60);
+            midMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, wireframe: true, transparent: true, opacity: 0.7 });
+            const midRing = new THREE.Mesh(midGeo, midMat);
+            arcCoreGroup.add(midRing);
+
+            const coreGeo = new THREE.OctahedronGeometry(0.5, 2);
+            const coreMat = new THREE.MeshBasicMaterial({ color: 0x00f0ff, wireframe: true, transparent: true, opacity: 0.9 });
+            centerCore = new THREE.Mesh(coreGeo, coreMat);
+            arcCoreGroup.add(centerCore);
+
+            scene.add(arcCoreGroup);
+            animateThree();
+
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+        }
+
+        function animateThree() {
+            requestAnimationFrame(animateThree);
+            if (arcCoreGroup) {
+                arcCoreGroup.rotation.z += 0.006 * speedMultiplier;
+                centerCore.rotation.y -= 0.012 * speedMultiplier;
+            }
+            if (renderer && scene && camera) {
+                renderer.render(scene, camera);
+            }
+        }
+
+        function boostReactorPower() {
+            isOverdrive = !isOverdrive;
+            if (isOverdrive) {
+                speedMultiplier = 3.0;
+                if(outerMat) outerMat.color.setHex(0xf43f5e);
+                if(midMat) midMat.color.setHex(0xf43f5e);
+                if(centerCore) centerCore.material.color.setHex(0xf43f5e);
+                statusText.innerText = "وضع الطاقة القصوى مفعل (Overdrive)";
+                speak("تم رفع طاقة المفاعل للقصوى.");
+            } else {
+                speedMultiplier = 1.0;
+                if(outerMat) outerMat.color.setHex(0x00f0ff);
+                if(midMat) midMat.color.setHex(0x38bdf8);
+                if(centerCore) centerCore.material.color.setHex(0x00f0ff);
+                statusText.innerText = "الأنظمة مستقرة وعادية.";
+                speak("تمت إعادة الطاقة للمعدل الطبيعي.");
+            }
+        }
+
+        function loadVoices() {
+            if ('speechSynthesis' in window) {
+                voices = window.speechSynthesis.getVoices();
+            }
+        }
+
+        function saveToMemory(userText, aiReply) {
+            memory.push({ text: userText, reply: aiReply, date: new Date().toISOString() });
+            if (memory.length > 25) memory.shift();
+            localStorage.setItem('valtrix_ultimate_memory', JSON.stringify(memory));
+        }
+
+        function clearMemory() {
+            localStorage.removeItem('valtrix_ultimate_memory');
+            memory = [];
+            responseText.innerHTML = "<b>فالتركس:</b> تم تطهير الذاكرة بنجاح.";
+            speak("تم تطهير الذاكرة بنجاح.");
+        }
+
+        function setupSpeech() {
+            if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+                const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+                recognition = new SpeechRecognition();
+                recognition.continuous = true;
+                recognition.interimResults = true;
+                recognition.lang = 'ar-EG';
+
+                recognition.onstart = () => {
+                    isListening = true;
+                    if (isContinuous) {
+                        statusText.innerText = "فالتركس يستمع لك للنهاية...";
+                    }
+                };
+
+                recognition.onresult = (event) => {
+                    if (!isContinuous) return;
+
+                    let currentTranscript = '';
+                    for (let i = event.resultIndex; i < event.results.length; ++i) {
+                        currentTranscript += event.results[i][0].transcript;
+                    }
+
+                    fullTranscript = currentTranscript;
+                    responseText.innerHTML = `<b>أنت تتحدث:</b> ${fullTranscript}`;
+
+                    clearTimeout(silenceTimer);
+                    silenceTimer = setTimeout(async () => {
+                        const spokenText = fullTranscript.toLowerCase().trim();
+                        fullTranscript = '';
+
+                        if (spokenText.includes("vx") || spokenText.includes("v x") || spokenText.includes("في إكس") || spokenText.includes("في اكس") || spokenText.includes("فالتركس")) {
+                            let query = spokenText.replace(/(vx|v x|في إكس|في اكس|فالتركس)/gi, "").trim();
+                            
+                            if (query.length > 1) {
+                                responseText.innerHTML = `<b>أنت:</b> ${spokenText}`;
+                                statusText.innerText = "جاري التحليل والمعالجة...";
+                                
+                                try { recognition.stop(); } catch(e){}
+
+                                if (await handleNativeCommands(query)) return;
+                                await askValtrix(query);
+                            }
+                        }
+                    }, 1500);
+                };
+
+                recognition.onerror = () => {};
+                recognition.onend = () => {
+                    isListening = false;
+                    if (isContinuous) {
+                        setTimeout(() => {
+                            try { recognition.start(); } catch(e){}
+                        }, 200);
+                    }
+                };
+            }
+        }
+
+        function toggleContinuousListening() {
+            if (!recognition) return;
+            isContinuous = !isContinuous;
+            if (isContinuous) {
+                wakeBtn.classList.add('active');
+                wakeBtn.innerText = "🔴 إيقاف التنصت (VX نشط)";
+                statusText.innerText = "الاستماع المستمر يعمل... تحدث بحرية.";
+                try { recognition.start(); } catch(e){}
+                speak("أنا أستمع إليك يا أنور، تحدث للنهاية.");
+            } else {
+                wakeBtn.classList.remove('active');
+                wakeBtn.innerText = "👂 تفعيل الاستماع المستمر 'VX'";
+                statusText.innerText = "تم إيقاف التنصت.";
+                try { recognition.stop(); } catch(e){}
+            }
+        }
+
+        async function toggleCameraManually() {
+            if (cameraStream) {
+                cameraStream.getTracks().forEach(track => track.stop());
+                cameraStream = null;
+                cameraPreview.style.display = "none";
+                statusText.innerText = "تم إيقاف الكاميرا.";
+                speak("تم إيقاف الكاميرا.");
+            } else {
+                try {
+                    cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
+                    cameraPreview.srcObject = cameraStream;
+                    cameraPreview.style.display = "block";
+                    statusText.innerText = "الكاميرا نشطة للرؤية البصرية...";
+                    speak("تم تشغيل الكاميرا بنجاح.");
+                } catch (err) {
+                    alert("تعذر تشغيل الكاميرا: " + err.message);
+                }
+            }
+        }
+
+        function captureFrameBase64() {
+            if (!cameraStream || cameraPreview.style.display === "none") return null;
+            const ctx = snapshotCanvas.getContext('2d');
+            snapshotCanvas.width = cameraPreview.videoWidth || 320;
+            snapshotCanvas.height = cameraPreview.videoHeight || 240;
+            ctx.drawImage(cameraPreview, 0, 0, snapshotCanvas.width, snapshotCanvas.height);
+            return snapshotCanvas.toDataURL('image/jpeg', 0.8);
+        }
+
+        async function handleNativeCommands(text) {
+            const cleanText = text.toLowerCase();
+
+            if (window.AndroidBridge) {
+                if (cleanText.includes("جهات الاتصال") || cleanText.includes("الأسماء")) {
+                    const contactsData = window.AndroidBridge.getContacts();
+                    const reply = `جهات الاتصال: ${contactsData}`;
+                    responseText.innerHTML = `<b>فالتركس:</b> ${reply}`;
+                    speak(reply);
+                    return true;
+                }
+            }
+
+            let appTarget = "";
+            if (cleanText.includes("افتح") || cleanText.includes("شغل") || cleanText.includes("open")) {
+                const parts = cleanText.split(/(?:افتح|شغل|open)/);
+                if (parts[1]) appTarget = parts[1].trim();
+            }
+
+            if (appTarget) {
+                const reply = `حاضر يا أنور، جاري تشغيل ${appTarget}.`;
+                responseText.innerHTML = `<b>فالتركس:</b> ${reply}`;
+                statusText.innerText = "تنفيذ أمر محلي...";
+                speak(reply);
+
+                setTimeout(() => {
+                    window.location.href = `intent://#Intent;action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;package=${appTarget};end`;
+                }, 1200);
+                return true;
+            }
+            return false;
+        }
+
+        async function askValtrix(promptText) {
+            const historyContext = memory.map(m => `User: ${m.text}\nVALTRIX: ${m.reply}`).join('\n');
+            const capturedImageData = captureFrameBase64();
+
+            const systemPrompt = `You are VALTRIX, an ultra-advanced personal AI system created for Anwar, inspired by Stark's JARVIS.
+            Context History:
+            ${historyContext}
+
+            Rules:
+            1. Provide precise, trustworthy, and authoritative facts. If an image is provided, analyze it deeply.
+            2. Reply in a professional, respectful Arabic tone.
+            3. Keep answers concise and direct for voice output.
+            4. STRICTLY avoid markdown symbols like *, #, or code blocks.`;
+
+            let messagesPayload = [
+                {"role": "system", "content": systemPrompt},
+                {"role": "user", "content": promptText}
+            ];
+
+            let selectedModel = "meta-llama/llama-3.3-70b-instruct";
+
+            if (capturedImageData) {
+                selectedModel = "meta-llama/llama-3.2-11b-vision-instruct";
+                messagesPayload = [
+                    {"role": "system", "content": systemPrompt},
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "text", "text": `${promptText} (Analyze this live camera view deeply and explain to Anwar).`},
+                            {"type": "image_url", "image_url": {"url": capturedImageData}}
+                        ]
+                    }
+                ];
+            }
+
+            try {
+                const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+                    method: "POST",
+                    headers: {
+                        "Authorization": `Bearer ${API_KEY}`,
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        "model": selectedModel,
+                        "messages": messagesPayload
+                    })
+                });
+
+                const data = await res.json();
+                if (data.choices && data.choices[0]) {
+                    let reply = data.choices[0].message.content.replace(/[*#_`(-]/g, ' ');
+                    responseText.innerHTML = `<b>فالتركس:</b> ${reply}`;
+                    statusText.innerText = "الأنظمة مستعدة...";
+                    
+                    saveToMemory(promptText, reply);
+                    speak(reply);
+                } else {
+                    statusText.innerText = "خطأ في استجابة شبكة المعرفة";
+                }
+            } catch (err) {
+                statusText.innerText = "فشل الاتصال بشبكة الإنترنت";
+            }
+        }
+
+        function speak(text) {
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel();
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = /[\u0600-\u06FF]/.test(text) ? 'ar-SA' : 'en-US';
+                
+                utterance.rate = 1.0;
+                utterance.pitch = 0.6; 
+
+                if (voices.length === 0) voices = window.speechSynthesis.getVoices();
+                const maleVoice = voices.find(v => v.lang.includes('ar') && (v.name.includes('Male') || v.name.includes('Maged') || v.name.includes('Naayf') || v.name.includes('Tarik') || v.name.includes('Google'))) || voices.find(v => v.lang.includes('ar'));
+                
+                if (maleVoice) {
+                    utterance.voice = maleVoice;
+                }
+
+                window.speechSynthesis.speak(utterance);
+            }
+        }
+    </script>
+</body>
+</html>
